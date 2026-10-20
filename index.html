@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0b1730">
+<meta name="description" content="Interactive DBMS project explaining timestamp-based concurrency control in a banking and ATM system.">
+<title>BankSync | Timestamp-Based Concurrency Control</title>
+
+<style>
+:root {
+  --navy: #0b1730;
+  --navy-light: #142747;
+  --green: #087f5b;
+  --green-light: #e3f8ed;
+  --gold: #f5bf4f;
+  --red: #d94a52;
+  --red-light: #fff0f0;
+  --blue: #3566db;
+  --ink: #19263b;
+  --muted: #68758a;
+  --surface: #ffffff;
+  --background: #f3f6fb;
+  --border: #e2e8f1;
+  --shadow: 0 10px 30px rgba(17, 37, 69, .07);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 85px; }
+body {
+  margin: 0;
+  font-family: Inter, "Segoe UI", Arial, sans-serif;
+  color: var(--ink);
+  background: var(--background);
+  line-height: 1.65;
+}
+button, a { font: inherit; }
+button { cursor: pointer; }
+a { color: inherit; text-decoration: none; }
+.topbar {
+  background: var(--navy);
+  color: white;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  border-bottom: 1px solid rgba(255,255,255,.1);
+}
+.nav {
+  max-width: 1180px;
+  margin: auto;
+  padding: 13px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: -.4px; }
+.brand-icon {
+  width: 38px; height: 38px; border-radius: 12px;
+  background: var(--gold); color: var(--navy);
+  display: grid; place-items: center; font-size: 20px;
+}
+.brand small { display: block; font-size: 10px; font-weight: 500; color: #b8c6dc; letter-spacing: 1.4px; }
+.nav-links { display: flex; flex-wrap: wrap; gap: 17px; font-size: 12px; color: #d1dced; }
+.nav-links a:hover { color: var(--gold); }
+main { max-width: 1180px; margin: auto; padding: 26px 22px 60px; }
+.hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 24px;
+  padding: clamp(26px, 5vw, 55px);
+  color: white;
+  background: radial-gradient(circle at 85% 15%, #244777 0, transparent 33%),
+              linear-gradient(125deg, #0b1730, #142d50 80%);
+  box-shadow: var(--shadow);
+}
+.hero:after {
+  content: ""; position: absolute; width: 280px; height: 280px;
+  border: 1px solid rgba(245,191,79,.2); border-radius: 50%;
+  right: -100px; bottom: -150px; box-shadow: 0 0 0 35px rgba(245,191,79,.035), 0 0 0 75px rgba(245,191,79,.025);
+}
+.eyebrow { color: var(--gold); font-size: 11px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; }
+h1 { font-size: clamp(30px, 5vw, 53px); line-height: 1.12; letter-spacing: -1.5px; margin: 14px 0; max-width: 760px; }
+.hero p { color: #d3deef; max-width: 690px; margin: 0; }
+.hero-tags { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 22px; }
+.tag { border: 1px solid rgba(255,255,255,.19); padding: 6px 11px; border-radius: 30px; font-size: 12px; color: #e4ecf8; }
+.hero-question { margin-top: 27px; padding: 14px 17px; border-left: 3px solid var(--gold); background: rgba(255,255,255,.07); border-radius: 0 12px 12px 0; max-width: 720px; }
+.hero-question strong { color: var(--gold); }
+.section { margin-top: 35px; }
+.section-heading { display: flex; align-items: flex-start; gap: 13px; margin-bottom: 17px; }
+.section-number {
+  flex-shrink: 0; width: 42px; height: 42px; display: grid; place-items: center;
+  border-radius: 13px; background: var(--navy); color: var(--gold); font-weight: 900; font-size: 17px;
+}
+h2 { font-size: clamp(21px, 3vw, 28px); letter-spacing: -.55px; margin: 0 0 4px; line-height: 1.3; }
+h3 { font-size: 16px; margin: 0 0 8px; }
+.section-heading p { margin: 0; color: var(--muted); font-size: 14px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 17px; padding: 21px; box-shadow: var(--shadow); min-width: 0; }
+.grid { display: grid; gap: 16px; }
+.grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); font-weight: 800; }
+.big-number { font-size: clamp(26px, 4vw, 38px); font-weight: 850; letter-spacing: -1px; line-height: 1.3; }
+.green { color: var(--green); }
+.red { color: var(--red); }
+.gold { color: #a96c00; }
+.muted { color: var(--muted); }
+.small { font-size: 12px; }
+.bank-flow { display: grid; grid-template-columns: 1fr 60px 1fr; align-items: center; gap: 12px; margin-top: 18px; }
+.atm {
+  padding: 18px; border: 1px solid var(--border); border-radius: 15px;
+  background: #f9fbff; text-align: center;
+}
+.atm-icon { font-size: 35px; display: block; margin-bottom: 7px; }
+.atm strong { display: block; }
+.atm .amount { font-size: 17px; font-weight: 800; margin-top: 7px; }
+.flow-arrow { color: var(--blue); font-size: 26px; text-align: center; }
+.account-node {
+  grid-column: 1 / -1; text-align: center; padding: 17px;
+  border: 1px dashed #a9b8ce; border-radius: 14px; background: #f0f5ff;
+}
+.account-node .big-number { color: var(--navy); }
+.callout { padding: 14px 16px; border-radius: 12px; margin-top: 16px; font-size: 13px; }
+.callout.warning { background: #fff7e3; border: 1px solid #f5df9d; }
+.callout.success { background: var(--green-light); border: 1px solid #b9e9ce; }
+.callout.danger { background: var(--red-light); border: 1px solid #f5c5c7; }
+.timeline { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+.tx-card { border: 1px solid var(--border); border-radius: 15px; padding: 18px; background: white; }
+.tx-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px; }
+.tx-badge { font-size: 12px; font-weight: 800; padding: 4px 9px; border-radius: 8px; background: #eaf0ff; color: #234db0; }
+.ts-badge { background: #fff3d1; color: #895900; font-weight: 800; padding: 5px 9px; border-radius: 8px; font-size: 12px; }
+ol.operations { padding-left: 21px; margin: 8px 0 0; font-size: 13px; }
+.operations li { margin: 5px 0; }
+.rule-card { border-top: 4px solid var(--blue); }
+.rule-card.write-rule { border-top-color: var(--red); }
+.rule-icon { font-size: 25px; margin-bottom: 8px; }
+.rule-card p { font-size: 13px; color: var(--muted); margin: 8px 0; }
+.rule { background: #f1f5fc; padding: 10px 12px; border-radius: 9px; font-size: 13px; margin-top: 8px; }
+.table-wrap { overflow-x: auto; border-radius: 13px; border: 1px solid var(--border); background: white; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; min-width: 620px; }
+th { background: #edf2fa; text-align: left; font-size: 11px; letter-spacing: .5px; text-transform: uppercase; color: #42516b; }
+th, td { padding: 12px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+tbody tr:last-child td { border-bottom: 0; }
+.status { display: inline-block; border-radius: 7px; padding: 3px 8px; font-size: 11px; font-weight: 800; white-space: nowrap; }
+.accepted { background: var(--green-light); color: #086342; }
+.rejected { background: var(--red-light); color: #b12e35; }
+.calculation { background: #fff3d1; color: #875b00; }
+.pending { background: #edf1f6; color: #637087; }
+.sim-layout { display: grid; grid-template-columns: .85fr 1.5fr; gap: 17px; align-items: start; }
+.sim-panel { background: var(--navy); color: white; border-radius: 17px; padding: 21px; }
+.sim-panel .label { color: #b8c8df; }
+.balance-live { font-size: 36px; font-weight: 900; letter-spacing: -1px; margin: 3px 0 15px; }
+.ts-row { display: flex; justify-content: space-between; gap: 10px; border-top: 1px solid rgba(255,255,255,.13); padding: 10px 0; font-size: 13px; }
+.ts-row strong { color: var(--gold); }
+.progress-track { background: #334766; border-radius: 30px; height: 7px; overflow: hidden; margin: 10px 0 6px; }
+.progress-fill { width: 0; height: 100%; background: var(--gold); transition: width .3s ease; }
+.sim-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 17px; }
+.btn { border: 0; border-radius: 10px; padding: 10px 14px; font-weight: 800; font-size: 12px; transition: transform .15s, opacity .15s; }
+.btn:hover { transform: translateY(-1px); }
+.btn:focus-visible, a:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+.btn-primary { background: var(--gold); color: var(--navy); }
+.btn-secondary { background: #eaf0f9; color: var(--navy); }
+.btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+.sim-note { background: rgba(255,255,255,.07); border-radius: 10px; padding: 12px; font-size: 12px; color: #e0e8f5; margin-top: 14px; min-height: 72px; }
+.schedule-row { display: grid; grid-template-columns: 28px 1fr auto; gap: 10px; align-items: start; padding: 13px 10px; border-bottom: 1px solid var(--border); border-radius: 8px; font-size: 12px; }
+.schedule-row:last-child { border-bottom: 0; }
+.schedule-row.current { background: #fff7e3; }
+.schedule-row.done { background: #f1faf5; }
+.step-no { width: 25px; height: 25px; display: grid; place-items: center; border-radius: 8px; background: #edf1f7; font-weight: 800; }
+.schedule-row.current .step-no { background: var(--gold); color: var(--navy); }
+.schedule-row.done .step-no { background: var(--green); color: white; }
+.schedule-row p { margin: 3px 0 0; color: var(--muted); }
+.schedule-row .status { align-self: center; }
+.final-balance { background: linear-gradient(120deg, #e4f9ed, #f5fcf8); border: 1px solid #bde8cd; border-radius: 15px; padding: 20px; }
+.final-balance .big-number { color: var(--green); }
+.compare { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; margin-top: 15px; }
+.compare > div { background: white; border: 1px solid var(--border); padding: 15px; border-radius: 13px; }
+.compare .big-number { font-size: 24px; }
+.outcome-list { list-style: none; padding: 0; margin: 0; }
+.outcome-list li { padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.outcome-list li:last-child { border-bottom: 0; }
+.outcome-list li::before { content: "✓"; color: var(--green); font-weight: 900; margin-right: 9px; }
+.conclusion { background: var(--navy); color: white; padding: 24px; border-radius: 17px; margin-top: 17px; }
+.conclusion p { color: #d2dced; margin-bottom: 0; }
+footer { text-align: center; padding: 25px 15px; font-size: 12px; color: var(--muted); }
+@media (max-width: 800px) {
+  .nav { align-items: flex-start; }
+  .nav-links { max-width: 300px; gap: 8px 13px; }
+  .grid-3 { grid-template-columns: 1fr 1fr; }
+  .sim-layout { grid-template-columns: 1fr; }
+}
+@media (max-width: 560px) {
+  main { padding: 15px 12px 35px; }
+  .nav { padding: 11px 13px; flex-wrap: wrap; }
+  .nav-links { max-width: none; }
+  .hero { border-radius: 18px; }
+  .grid-2, .grid-3, .timeline { grid-template-columns: 1fr; }
+  .bank-flow { grid-template-columns: 1fr 35px 1fr; gap: 5px; }
+  .atm { padding: 12px 6px; }
+  .atm-icon { font-size: 28px; }
+  .atm .amount { font-size: 14px; }
+  .compare { grid-template-columns: 1fr; }
+  .card { padding: 16px; }
+  .section-heading { gap: 10px; }
+  .section-number { width: 36px; height: 36px; }
+  .schedule-row { grid-template-columns: 25px 1fr; }
+  .schedule-row .status { grid-column: 2; justify-self: start; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
+}
+</style>
+</head>
+
+<body>
+<header class="topbar">
+  <nav class="nav" aria-label="Main navigation">
+    <a class="brand" href="#top">
+      <span class="brand-icon" aria-hidden="true">▤</span>
+      <span>BankSync<small>DBMS LEARNING LAB</small></span>
+    </a>
+    <div class="nav-links">
+      <a href="#problem">Problem</a>
+      <a href="#timestamps">Timestamps</a>
+      <a href="#rules">Rules</a>
+      <a href="#simulation">Simulation</a>
+      <a href="#rollback">Rollback</a>
+      <a href="#conclusion">Conclusion</a>
+    </div>
+  </nav>
+</header>
+
+<main id="top">
+  <section class="hero">
+    <div class="eyebrow">Database Management System · Case Study 02</div>
+    <h1>Timestamp-Based<br>Concurrency Control</h1>
+    <p>How can a banking database safely process withdrawals from two ATMs that access the same account at nearly the same time?</p>
+    <div class="hero-tags">
+      <span class="tag">Banking / ATM System</span>
+      <span class="tag">Transaction Ordering</span>
+      <span class="tag">Rollback Analysis</span>
+      <span class="tag">Interactive Simulation</span>
+    </div>
+    <div class="hero-question"><strong>Core question:</strong> How does the DBMS prevent an older transaction from overwriting a newer transaction's accepted update?</div>
+  </section>
+
+  <!-- SECTION 1 -->
+  <section class="section" id="problem">
+    <div class="section-heading">
+      <span class="section-number">01</span>
+      <div><h2>The Banking Problem — Two ATMs, One Account</h2>
+        <p>Two withdrawal requests compete to update the same bank account.</p></div>
+    </div>
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="label">Initial account balance</div>
+        <div class="big-number">₹10,000</div>
+        <p class="muted small">Both ATMs access the same database record: Account Balance.</p>
+        <div class="bank-flow">
+          <div class="atm">
+            <span class="atm-icon" aria-hidden="true">▣</span>
+            <strong>ATM 1 · T1</strong>
+            <div class="amount">− ₹2,000</div>
+            <span class="small muted">Older transaction</span>
+          </div>
+          <div class="flow-arrow" aria-hidden="true">⇄</div>
+          <div class="atm">
+            <span class="atm-icon" aria-hidden="true">▣</span>
+            <strong>ATM 2 · T2</strong>
+            <div class="amount">− ₹3,000</div>
+            <span class="small muted">Newer transaction</span>
+          </div>
+          <div class="account-node">
+            <div class="label">Shared database record</div>
+            <div class="big-number">₹10,000</div>
+            <span class="small muted">One account · Two transactions</span>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>What can go wrong?</h3>
+        <p class="muted small">Suppose both transactions read ₹10,000 before either update is saved.</p>
+        <div class="callout warning">
+          <strong>ATM 1 calculates:</strong> ₹10,000 − ₹2,000 = ₹8,000
+        </div>
+        <div class="callout warning">
+          <strong>ATM 2 calculates:</strong> ₹10,000 − ₹3,000 = ₹7,000
+        </div>
+        <div class="callout danger">
+          <strong>Lost update risk:</strong> If ₹8,000 is written after ₹7,000 without concurrency control, the newer update may be overwritten. The account could show an incorrect balance.
+        </div>
+        <p><strong>Solution:</strong> Timestamp ordering checks whether every read and write follows the required transaction order.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 2 -->
+  <section class="section" id="timestamps">
+    <div class="section-heading">
+      <span class="section-number">02</span>
+      <div><h2>Transaction Modeling and Timestamp Assignment</h2>
+        <p>Each transaction receives a unique logical timestamp when it starts.</p></div>
+    </div>
+    <div class="grid grid-2">
+      <div class="tx-card">
+        <div class="tx-top"><span class="tx-badge">T1 · ATM 1</span><span class="ts-badge">TS(T1) = 10</span></div>
+        <div class="big-number">− ₹2,000</div>
+        <p class="muted small">Older transaction · Started first</p>
+        <ol class="operations">
+          <li>Read the account balance.</li>
+          <li>Calculate the balance after withdrawal.</li>
+          <li>Write the updated balance.</li>
+          <li>Commit if successful.</li>
+        </ol>
+      </div>
+      <div class="tx-card">
+        <div class="tx-top"><span class="tx-badge">T2 · ATM 2</span><span class="ts-badge">TS(T2) = 20</span></div>
+        <div class="big-number">− ₹3,000</div>
+        <p class="muted small">Newer transaction · Started later</p>
+        <ol class="operations">
+          <li>Read the account balance.</li>
+          <li>Calculate the balance after withdrawal.</li>
+          <li>Write the updated balance.</li>
+          <li>Commit if successful.</li>
+        </ol>
+      </div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <h3>Transaction timeline</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:15px">
+        <div style="border-left:4px solid #f5bf4f;padding:5px 0 5px 13px">
+          <strong>T1 begins</strong><div class="gold">Timestamp 10</div>
+          <span class="small muted">Older transaction</span>
+        </div>
+        <div style="border-left:4px solid #3566db;padding:5px 0 5px 13px">
+          <strong>T2 begins</strong><div style="color:#3566db;font-weight:800">Timestamp 20</div>
+          <span class="small muted">Newer transaction</span>
+        </div>
+      </div>
+      <div class="callout warning">A smaller timestamp means an older transaction. A larger timestamp means a newer transaction. Conflicting operations must respect the serial order T1 → T2.</div>
+      <p class="small muted">These timestamps are illustrative logical values, not real clock times. The final outcome depends on the actual operations and timestamp checks.</p>
+    </div>
+  </section>
+
+  <!-- SECTION 3 -->
+  <section class="section" id="rules">
+    <div class="section-heading">
+      <span class="section-number">03</span>
+      <div><h2>Timestamp Ordering Protocol and Its Rules</h2>
+        <p>The DBMS tracks read and write timestamps for every database item.</p></div>
+    </div>
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="label">Read timestamp</div>
+        <h3>Read_TS(X)</h3>
+        <p class="muted">The largest timestamp of any transaction that has successfully read item X.</p>
+        <div class="rule"><strong>Example:</strong> If T1 and T2 have read Account, Read_TS(Account) = 20.</div>
+      </div>
+      <div class="card">
+        <div class="label">Write timestamp</div>
+        <h3>Write_TS(X)</h3>
+        <p class="muted">The largest timestamp of any transaction that has successfully written item X.</p>
+        <div class="rule"><strong>Example:</strong> If T2 successfully writes Account, Write_TS(Account) = 20.</div>
+      </div>
+    </div>
+    <div class="grid grid-2" style="margin-top:16px">
+      <div class="card rule-card">
+        <div class="rule-icon">↗</div>
+        <h3>Rule 1: Read Operation — Read(X)</h3>
+        <div class="rule"><strong>If TS(T) &lt; Write_TS(X)</strong></div>
+        <p>Reject the read and roll back T because a newer transaction has already written X.</p>
+        <div class="rule"><strong>Otherwise:</strong> Allow the read and update Read_TS(X) to max(Read_TS(X), TS(T)).</div>
+      </div>
+      <div class="card rule-card write-rule">
+        <div class="rule-icon">↻</div>
+        <h3>Rule 2: Write Operation — Write(X)</h3>
+        <div class="rule"><strong>If TS(T) &lt; Read_TS(X)</strong></div>
+        <p>Reject the write: a newer transaction has already read X.</p>
+        <div class="rule"><strong>If TS(T) &lt; Write_TS(X)</strong></div>
+        <p>Reject the write under basic timestamp ordering: a newer transaction has already written X.</p>
+        <div class="rule"><strong>Otherwise:</strong> Allow the write and set Write_TS(X) = TS(T).</div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <h3>Decision table</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Operation</th><th>Condition</th><th>DBMS action</th><th>Reason</th></tr></thead>
+          <tbody>
+            <tr><td>Read(X)</td><td>TS(T) &lt; Write_TS(X)</td><td><span class="status rejected">Reject / Rollback</span></td><td>A newer transaction already wrote X.</td></tr>
+            <tr><td>Read(X)</td><td>TS(T) ≥ Write_TS(X)</td><td><span class="status accepted">Accept</span></td><td>Read follows timestamp order.</td></tr>
+            <tr><td>Write(X)</td><td>TS(T) &lt; Read_TS(X)</td><td><span class="status rejected">Reject / Rollback</span></td><td>A newer transaction already read X.</td></tr>
+            <tr><td>Write(X)</td><td>TS(T) &lt; Write_TS(X)</td><td><span class="status rejected">Reject / Rollback</span></td><td>A newer transaction already wrote X.</td></tr>
+            <tr><td>Write(X)</td><td>Both checks pass</td><td><span class="status accepted">Accept</span></td><td>Write preserves timestamp order.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout success">These rules enforce the serial order established by transaction timestamps. A rejected operation cannot simply proceed as if no conflict occurred.</div>
+    </div>
+  </section>
+
+  <!-- SECTION 4 -->
+  <section class="section" id="simulation">
+    <div class="section-heading">
+      <span class="section-number">04</span>
+      <div><h2>Step-by-Step Execution and Conflict Analysis</h2>
+        <p>Run the exact schedule and observe why T1's final write is rejected.</p></div>
+    </div>
+    <div class="sim-layout">
+      <div class="sim-panel">
+        <div class="label">Live account balance</div>
+        <div class="balance-live" id="liveBalance" aria-live="polite">₹10,000</div>
+        <div class="ts-row"><span>TS(T1) · ATM 1</span><strong>10</strong></div>
+        <div class="ts-row"><span>TS(T2) · ATM 2</span><strong>20</strong></div>
+        <div class="ts-row"><span>Read_TS(Account)</span><strong id="readTs">0</strong></div>
+        <div class="ts-row"><span>Write_TS(Account)</span><strong id="writeTs">0</strong></div>
+        <div style="margin-top:15px;display:flex;justify-content:space-between;gap:8px;font-size:12px">
+          <span id="progressText">Step 0 of 6</span><span id="progressPercent">0%</span>
+        </div>
+        <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+        <div class="sim-buttons">
+          <button class="btn btn-primary" id="nextBtn" type="button">Next Step →</button>
+          <button class="btn btn-secondary" id="resetBtn" type="button">↺ Reset</button>
+        </div>
+        <div class="sim-note" id="simNote" role="status" aria-live="polite">Press “Next Step” to begin. Operations execute in the required order.</div>
+      </div>
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:10px">
+          <h3 style="margin:0">Execution schedule</h3>
+          <span class="label">6 steps</span>
+        </div>
+        <div id="schedule">
+          <div class="schedule-row" data-step="1"><span class="step-no">1</span><div><strong>T1 reads ₹10,000</strong><p>Read the shared account record.</p></div><span class="status pending">Pending</span></div>
+          <div class="schedule-row" data-step="2"><span class="step-no">2</span><div><strong>T2 reads ₹10,000</strong><p>Read the same account record.</p></div><span class="status pending">Pending</span></div>
+          <div class="schedule-row" data-step="3"><span class="step-no">3</span><div><strong>T2 calculates ₹7,000</strong><p>₹10,000 − ₹3,000. No database write yet.</p></div><span class="status pending">Pending</span></div>
+          <div class="schedule-row" data-step="4"><span class="step-no">4</span><div><strong>T2 writes ₹7,000</strong><p>Accepted; Write_TS becomes 20.</p></div><span class="status pending">Pending</span></div>
+          <div class="schedule-row" data-step="5"><span class="step-no">5</span><div><strong>T1 calculates ₹8,000</strong><p>Uses its earlier read of ₹10,000.</p></div><span class="status pending">Pending</span></div>
+          <div class="schedule-row" data-step="6"><span class="step-no">6</span><div><strong>T1 attempts to write ₹8,000</strong><p>Rejected because 10 &lt; Write_TS(Account) = 20.</p></div><span class="status pending">Pending</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <h3>Trace the timestamp changes</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Step</th><th>Operation</th><th>Read_TS</th><th>Write_TS</th><th>Outcome</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>T1 reads Account</td><td>10</td><td>0</td><td><span class="status accepted">Accepted</span></td></tr>
+            <tr><td>2</td><td>T2 reads Account</td><td>20</td><td>0</td><td><span class="status accepted">Accepted</span></td></tr>
+            <tr><td>3</td><td>T2 calculates ₹7,000</td><td>20</td><td>0</td><td><span class="status calculation">Calculation only</span></td></tr>
+            <tr><td>4</td><td>T2 writes ₹7,000</td><td>20</td><td>20</td><td><span class="status accepted">Accepted</span></td></tr>
+            <tr><td>5</td><td>T1 calculates ₹8,000</td><td>20</td><td>20</td><td><span class="status calculation">Calculation only</span></td></tr>
+            <tr><td>6</td><td>T1 attempts to write ₹8,000</td><td>20</td><td>20</td><td><span class="status rejected">Rejected</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout danger"><strong>Conflict:</strong> TS(T1) = 10 is less than Write_TS(Account) = 20. If T1's write were allowed, it would overwrite T2's newer accepted value. Basic timestamp ordering therefore rejects T1's write.</div>
+    </div>
+  </section>
+
+  <!-- SECTION 5 -->
+  <section class="section" id="rollback">
+    <div class="section-heading">
+      <span class="section-number">05</span>
+      <div><h2>Rollback, Restart, and Database Consistency</h2>
+        <p>Rejecting an operation preserves the required order of conflicting transactions.</p></div>
+    </div>
+    <div class="grid grid-2">
+      <div class="card">
+        <h3>What happens to T1?</h3>
+        <ul class="outcome-list">
+          <li>The DBMS aborts or rolls back T1 under basic timestamp ordering.</li>
+          <li>T2 is not automatically rolled back just because T1 fails.</li>
+          <li>If the application retries T1, the restarted transaction receives an appropriate new timestamp.</li>
+          <li>Atomicity ensures an aborted transaction does not leave partial updates visible.</li>
+        </ul>
+      </div>
+      <div class="final-balance">
+        <div class="label">Final balance in this example</div>
+        <div class="big-number">₹7,000</div>
+        <p>T2's accepted write remains the result, provided T2 commits successfully and no other operations change the account.</p>
+        <span class="status accepted">T2 accepted</span>
+        <span class="status rejected">T1 rolled back</span>
+      </div>
+    </div>
+    <div class="compare">
+      <div><div class="label">Before T2's write</div><div class="big-number">₹10,000</div><p class="small muted">Initial database balance</p></div>
+      <div><div class="label">After T2's write</div><div class="big-number green">₹7,000</div><p class="small muted">Accepted update</p></div>
+      <div><div class="label">T1's attempted write</div><div class="big-number red">₹8,000</div><p class="small muted">Rejected by timestamp rule</p></div>
+    </div>
+    <div class="callout warning"><strong>Important distinction:</strong> ₹7,000 is the final balance for this illustrative schedule, not a claim that both withdrawals succeeded. Real banking systems also require atomicity, isolation, validation, and insufficient-funds checks. The example isolates timestamp-ordering behavior.</div>
+  </section>
+
+  <!-- SECTION 6 -->
+  <section class="section" id="conclusion">
+    <div class="section-heading">
+      <span class="section-number">06</span>
+      <div><h2>Final Analysis, Advantages, and Learning Outcomes</h2>
+        <p>What the ATM case study demonstrates about concurrent transactions.</p></div>
+    </div>
+    <div class="grid grid-2">
+      <div class="card">
+        <h3>Advantages</h3>
+        <ul class="outcome-list">
+          <li>Enforces a serial order based on timestamps.</li>
+          <li>Detects operations that violate the required order.</li>
+          <li>Prevents conflicting writes from silently overwriting newer values.</li>
+          <li>Supports consistent concurrent transaction processing.</li>
+          <li>Provides clear rollback conditions.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Limitations</h3>
+        <ul class="outcome-list">
+          <li>Transactions may be aborted and restarted.</li>
+          <li>Repeated conflicts can cause multiple restarts.</li>
+          <li>Timestamp ordering alone does not replace other banking safeguards.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <h3>Learning outcomes</h3>
+      <ol class="operations" style="font-size:14px">
+        <li>Model concurrent ATM transactions.</li>
+        <li>Assign and compare transaction timestamps.</li>
+        <li>Trace Read_TS and Write_TS values.</li>
+        <li>Identify conflicting operations and rollback conditions.</li>
+        <li>Explain how timestamp ordering preserves database consistency.</li>
+      </ol>
+    </div>
+    <div class="conclusion">
+      <div class="eyebrow">Exam-oriented conclusion</div>
+      <h2>Consistency through timestamp ordering</h2>
+      <p>Timestamp-based concurrency control assigns each transaction a logical timestamp and checks every conflicting read and write against the database item's Read_TS and Write_TS. In this example, T2 successfully writes ₹7,000, while T1's later attempt to write ₹8,000 is rejected because TS(T1) &lt; Write_TS(Account). This prevents the older transaction from overwriting the newer accepted update and preserves the required timestamp order.</p>
+    </div>
+  </section>
+</main>
+
+<footer>BankSync · DBMS Case Study · Timestamp-Based Concurrency Control</footer>
+
+<script>
+(() => {
+  "use strict";
+
+  // This simulation follows the six operations defined in the case study.
+  const initialBalance = 10000;
+  const transactions = [
+    {
+      description: "T1 reads the account balance of ₹10,000.",
+      status: "Accepted",
+      note: "T1 (timestamp 10) reads the account. Read_TS becomes 10. The balance is unchanged.",
+      action: (state) => { state.readTS = Math.max(state.readTS, 10); }
+    },
+    {
+      description: "T2 reads the account balance of ₹10,000.",
+      status: "Accepted",
+      note: "T2 (timestamp 20) reads the same account. Read_TS becomes 20. Both transactions have read the original value.",
+      action: (state) => { state.readTS = Math.max(state.readTS, 20); }
+    },
+    {
+      description: "T2 calculates ₹10,000 − ₹3,000 = ₹7,000.",
+      status: "Calculation Only",
+      note: "T2 calculates its new balance locally. A calculation alone does not change the database balance or Write_TS.",
+      action: () => {}
+    },
+    {
+      description: "T2 writes ₹7,000.",
+      status: "Accepted",
+      note: "T2's write passes the timestamp checks. The account balance becomes ₹7,000 and Write_TS becomes 20.",
+      action: (state) => { state.balance = 7000; state.writeTS = 20; }
+    },
+    {
+      description: "T1 calculates ₹10,000 − ₹2,000 = ₹8,000 using its earlier read.",
+      status: "Calculation Only",
+      note: "T1 still calculates ₹8,000 from its earlier read of ₹10,000. This local calculation does not change the current database balance.",
+      action: () => {}
+    },
+    {
+      description: "T1 attempts to write ₹8,000.",
+      status: "Rejected",
+      note: "ROLLBACK: TS(T1) = 10 is less than Write_TS(Account) = 20. Basic timestamp ordering rejects T1's write. T2 is not automatically rolled back; the balance remains ₹7,000 if T2 commits.",
+      action: (state) => { state.t1Aborted = true; }
+    }
+  ];
+
+  const state = {
+    step: 0,
+    balance: initialBalance,
+    readTS: 0,
+    writeTS: 0,
+    t1Aborted: false
+  };
+
+  const balanceEl = document.getElementById("liveBalance");
+  const readTsEl = document.getElementById("readTs");
+  const writeTsEl = document.getElementById("writeTs");
+  const progressText = document.getElementById("progressText");
+  const progressPercent = document.getElementById("progressPercent");
+  const progressFill = document.getElementById("progressFill");
+  const simNote = document.getElementById("simNote");
+  const nextBtn = document.getElementById("nextBtn");
+  const resetBtn = document.getElementById("resetBtn");
+  const scheduleRows = Array.from(document.querySelectorAll(".schedule-row"));
+
+  const formatRupees = (value) =>
+    "₹" + value.toLocaleString("en-IN");
+
+  function render() {
+    balanceEl.textContent = formatRupees(state.balance);
+    readTsEl.textContent = String(state.readTS);
+    writeTsEl.textContent = String(state.writeTS);
+
+    const percent = Math.round((state.step / transactions.length) * 100);
+    progressText.textContent = `Step ${state.step} of ${transactions.length}`;
+    progressPercent.textContent = `${percent}%`;
+    progressFill.style.width = `${percent}%`;
+
+    scheduleRows.forEach((row, index) => {
+      const stepNumber = index + 1;
+      const statusEl = row.querySelector(".status");
+      row.classList.toggle("current", stepNumber === state.step + 1 && state.step < transactions.length);
+      row.classList.toggle("done", stepNumber <= state.step);
+
+      if (stepNumber <= state.step) {
+        const transaction = transactions[index];
+        statusEl.textContent = transaction.status;
+        statusEl.className = "status " +
+          (transaction.status === "Accepted" ? "accepted" :
+           transaction.status === "Rejected" ? "rejected" : "calculation");
+      } else {
+        statusEl.textContent = "Pending";
+        statusEl.className = "status pending";
+      }
+    });
+
+    nextBtn.disabled = state.step >= transactions.length;
+    nextBtn.textContent = state.step >= transactions.length ? "Simulation Complete" : "Next Step →";
+  }
+
+  nextBtn.addEventListener("click", () => {
+    if (state.step >= transactions.length) return;
+
+    const transaction = transactions[state.step];
+    transaction.action(state);
+    state.step += 1;
+    simNote.textContent = transaction.note;
+
+    if (state.step === transactions.length) {
+      simNote.textContent += " Simulation complete. Final balance: " + formatRupees(state.balance) + ".";
+    }
+
+    render();
+  });
+
+  resetBtn.addEventListener("click", () => {
+    state.step = 0;
+    state.balance = initialBalance;
+    state.readTS = 0;
+    state.writeTS = 0;
+    state.t1Aborted = false;
+    simNote.textContent = "Simulation reset. Press “Next Step” to begin.";
+    render();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
